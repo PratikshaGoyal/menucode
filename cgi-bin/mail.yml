@@ -1,0 +1,10 @@
+- hosts: localhost
+  tasks:
+     - mail:
+          host: "smtp.gmail.com"
+          port: 587
+          username: "{{mail_id}} "
+          password: "{{password}} "
+          to: "{{recipients}} " 
+          subject: "{{subject}} "
+          body: "{{body}} "

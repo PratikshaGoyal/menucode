@@ -1,0 +1,198 @@
+#!/usr/bin/python36	
+
+import os 
+import subprocess as sp
+import cgi
+
+print("content-type:text/html\n")
+
+data = cgi.FieldStorage()
+ch = data.getvalue('choice')
+hostname = data.getvalue('hostname')
+node = data.getvalue('node')
+pritn(f"<h1>ch</h1>")
+
+sp.getoutput("sudo chmod 777 /etc/ansible/hosts")
+
+sp.getoutput("sudo cp /etc/hadoop/hdfs-site.xml /var/www/cgi-bin")
+sp.getoutput("sudo cp /etc/hadoop/core-site.xml /var/www/cgi-bin")
+sp.getoutput("sudo cp /etc/hadoop/mapred-site.xml /var/www/cgi-bin")
+
+sp.getoutput("sudo chmod 777 /var/www/cgi-bin/hdfs-site.xml")
+sp.getoutput("sudo chmod 777 /var/www/cgi-bin/core-site.xml")
+sp.getoutput("sudo chmod 777 /var/www/cgi-bin/mapred-site.xml")
+
+fp = open("/etc/ansible/hosts","r")
+l = fp.read()
+fp.close()
+
+fh = open("/etc/ansible/hosts","a")
+
+if node in l:
+	fh.write(f"{hostname}\tansible_user=redhat\tansible_ssh_pass=redhat\n")
+else:
+	fh.write(f"[{node}]\n")
+	fh.write(f"{hostname}\tansible_user=redhat\tansible_ssh_pass=redhat\n")
+fh.close()
+
+def start():
+	os.system(f'sudo ansible {node} -m command -a "hadoop-daemon.sh start {node}"')
+	os.system('sudo ansible {node} -m command -a "iptables -F"')
+	os.system('sudo ansible {node} -m command -a "jps"')
+
+
+def master_node_setup(file_ip,hostname):
+	n="name"	
+	hdfs_site(file_ip,n)
+	core_site(hostname)
+	os.system('sudo ansible master -m copy -a "src=/var/www/cgi-bin/hdfs-site.xml dest=/etc/hadoop"')	
+	os.system('sudo ansible master -m copy -a "src=/var/www/cgi-bin/core-site.xml dest=/etc/hadoop"')	
+	os.system('sudo ansible master -m command -a "hadoop namenode -format"')
+	start()
+
+
+def slave_node_setup(file_ip,hostname):
+	n="data"	
+	hdfs_site(file_ip,n)
+	core_site(hostname)
+	os.system('sudo ansible slave -m copy -a "src=/var/www/cgi-bin/hdfs-site.xml dest=/etc/hadoop"')	
+	os.system('sudo ansible slave -m copy -a "src=/var/www/cgi-bin/core-site.xml dest=/etc/hadoop"')	
+	start()
+
+
+def client_node_setup(hostname):
+	os.system(f"sudo mkdir {file_ip}")
+	no_of_replicas = input("enter no. of replicas : ")
+	f = open("/var/www/cgi-bin/hdfs-site.xml" ,"w")	
+	f.write(f"""<?xml version="1.0"?>\n<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>\n\n<!-- 	Put site-specific property overrides in this file. -->\n\n<configuration>\n<property>\n<name>dfs.replication</name>\n<value>{no_of_replicas}</value>\n</property>\n\n</configuration>""")
+	f.close()
+
+	core_site(hostname)
+	os.system('sudo ansible client -m copy -a "src=/var/www/cgi-bin/hdfs-site.xml dest=/etc/hadoop"')	
+
+
+def hdfs_site(file_ip,n):
+	os.system(f"sudo mkdir {file_ip}")
+	f = open("/var/www/cgi-bin/hdfs-site.xml" ,"w")	
+	f.write(f"""<?xml version="1.0"?>\n<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>\n\n<!-- 	Put site-specific property overrides in this file. -->\n\n<configuration>\n<property>\n<name>dfs.{n}.dir</name>\n<value>/{file_ip}</value>\n</property>\n\n</configuration>""")
+	f.close()
+
+
+def core_site(hostname):
+	f = open("/var/www/cgi-bin/core-site.xml" ,"w")	
+	f.write(f"""<?xml version="1.0"?>\n<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>\n\n<!-- 	Put site-specific property overrides in this file. -->\n\n<configuration>\n<property>\n<name>fs.default.name</name>\n<value>hdfs://{hostname}:9001</value>\n</property>\n\n</configuration>""")
+	f.close()
+
+
+def mapred_site(hostname):
+	f = open("/var/www/cgi-bin/mapred-site.xml","w")
+	f.write(f"""<?xml version="1.0"?>\n<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>\n\n<!-- Put site-specific property overrides in this file. -->\n\n<configuration>\n<property>\n<name>mapred.job.tracker</name>\n<value>{hostname}:9002</value>\n</property>\n\n</configuration>""")
+	f.close()
+i
+if ch == "MasterNode":
+	master_node_setup(file_ip,hostname)
+	report = sp.getstatusoutput("sudo hadoop dfsadmin -report")
+	if report[0]==0:
+		print("<h4>node successfully configured</h4>")
+	else:
+		print("<h3>unable to configure your node</h3>")
+	start()
+
+elif ch == "SlaveNode":
+	slave_node_setup(file_ip,hostname)
+
+elif ch == "JobTracker":
+	print("hi")
+	mapred_site(hostname)
+	print("bye")
+	core_site(hostname)
+	print("welcome")
+	start()
+	print("getlost")
+
+elif ch == "TaskTracker":
+	mapred_site(hostname)
+	start()
+
+elif ch == "Client":
+	client_node_setup(hostname)
+
+elif ch == "upload":
+	filename = input("Enter the name of file you want to upload : ") 
+	op = sp.getstatusoutput('sudo ansible client -m command -a "hadoop fs -put {filename} /" ')
+	if op[0] == 0:
+		t = "File uploded"
+	else:
+		t = "File not uploaded"
+elif ch == "read":
+	filename = input("Enter the name of file you want to read : ") 
+	op = sp.getoutput('sudo ansible client -m command -a "hadoop fs -cat /{filename} " ')
+	
+elif ch == "delete":
+	filename = input("Enter the name of file you want to remove : ") 
+	op = sp.getstatusoutput('sudo ansible client -m command -a "hadoop fs -rm /{filename} " ')
+	if op[0] == 0:
+		t = "File Deleted"
+	else:
+		t = "File not deleted"
+	
+elif ch == "list":
+	op = sp.getoutput('sudo ansible client -m command -a "hadoop fs -ls /" ')
+	session.send(op.encode())
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+""" def r_node_setup():
+	print(""
+	press 1 : for master node setup
+	press 2 : for slave node setup
+	press 3 : for client node setup
+	press 4 : to start master node
+	press 5 : to upload a file via cloud
+	press 6 : to read a file 
+	press 7 : to remove a file 
+
+	"")
+	
+	x = int(input("enter your choice : "))	
+	subprocess.getoutput("cp /etc/hadoop/hdfs-site.xml /var/www/cgi-bin/")
+	subprocess.getoutput("cp /etc/hadoop/core-site.xml /var/www/cgi-bin/")
+
+	if x == 1: 
+		file_ip = input("enter name of file : ")
+		master_ip=input("enter namenode's ip :")
+		hostname = input("enter hostname : ")	
+		r_master_node_setup(master_ip,file_ip,hostname)
+		#os.system("hadoop-daemon.sh start namenode ")
+		#os.system("iptables - F")
+		#os.system("jps")
+		#os.system("hadoop dfsadmin -report")
+	elif x == 2:
+		file_ip = input("enter name of file : ")
+		slave_ip=input("enter datanode's ip :")
+		hostname = input("enter hostname : ")	
+		r_slave_node_setup(slave_ip,file_ip,hostname)
+		os.system("hadoop-daemon.sh start datanode ")
+		os.system("iptables - F")
+		os.system("jps")
+	elif x == 3:
+		client_ip=input("enter client's ip :")
+		hostname = input("enter hostname : ")	
+		r_client_node_setup(client_ip,hostname)
+
+"""
+
+
+
+

@@ -1,0 +1,24 @@
+<form action='http://192.168.43.115/cgi-bin/hadoop_ans.py'>
+What do you want to configure 
+<select name='choice'>
+	<option>MasterNode</option>
+	<option>SlaveNode</option>
+	<option>JobTracker</option>
+	<option>TaskTracker</option>
+	<option>Client</option>
+</select>
+<br>
+Enter name of file : <input name='file'/><br>
+Enter hostname/IP of node to be configured : <input name='hostname'/><br>
+Enter hostname/IP of master node/job tracker : <input name='mastername'/><br>
+Start node
+<select name='node'>
+	<option>namenode</option>
+	<option>datanode</option>
+	<option>jobtracker</option>
+	<option>tasktracker</option>
+	<option>client</option>
+</select><br>
+<input type='submit' value='configure'/>
+<a href='http://192.168.43.115/cgi-bin/master_format.py'>Format Master Node</a>
+</form>

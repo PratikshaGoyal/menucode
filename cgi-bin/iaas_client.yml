@@ -1,0 +1,7 @@
+- hosts: localhost
+  tasks:
+     - package:
+          name: "tigervnc"
+          state: present
+     - command: "iptables -F"
+     - command: "vncviewer {{ip}}:5905"

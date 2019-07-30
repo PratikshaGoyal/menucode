@@ -1,0 +1,5 @@
+- hosts: localhost
+  tasks:
+     - package:
+          name: "novnc"
+          state: present

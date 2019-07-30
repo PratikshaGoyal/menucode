@@ -1,0 +1,8 @@
+- hosts: all
+  tasks: 
+   - package:
+      name: "{{ x }}"
+      state: present
+   - service:
+      name: "{{ x }}"
+      enabled: yes
